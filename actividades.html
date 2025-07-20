@@ -1,0 +1,56 @@
+<!-- actividades.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Actividades POA - SystemPOA</title>
+  <link rel="stylesheet" href="actividades.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+</head>
+<body>
+
+  <div class="container">
+    <h1>Registrar Actividad del POA</h1>
+    
+    <form id="actividadForm">
+      <label>Tipo de Actividad:</label>
+      <select id="tipoActividad" required>
+        <option value="">Seleccionar</option>
+        <option value="Visita Técnica">Visita Técnica</option>
+        <option value="Seminario Internacional">Seminario Internacional</option>
+        <option value="Documento Traducido">Documento Traducido</option>
+        <!-- Agrega más según tu hoja de Excel -->
+      </select>
+
+      <label>Descripción:</label>
+      <textarea id="descripcion" required></textarea>
+
+      <label>Fecha:</label>
+      <input type="date" id="fecha" required />
+
+      <label>Responsable:</label>
+      <input type="text" id="responsable" required />
+
+      <label>Resultado esperado:</label>
+      <input type="text" id="resultado" required />
+
+      <button type="submit">Guardar Actividad</button>
+    </form>
+
+    <h2>Actividades Registradas</h2>
+    <div id="listaActividades"></div>
+
+    <h2>Progreso</h2>
+    <canvas id="graficoProgreso" width="400" height="200"></canvas>
+
+    <button onclick="generarPDF()">Exportar a PDF</button>
+  </div>
+
+  <script src="actividades.js"></script>
+</body>
+</html>

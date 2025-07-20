@@ -1,0 +1,37 @@
+<!-- dashboard.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - SystemPOA</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="logo">SystemPOA</div>
+    <ul class="menu">
+      <li><a href="dashboard.html">Inicio</a></li>
+      <li><a href="llenar-poa.html">Llenar POA</a></li>
+      <li><a href="ver-poa.html">Ver POA</a></li>
+      <li class="user">Carlos</li>
+      <li><button id="logoutBtn">Cerrar sesión</button></li>
+    </ul>
+  </aside>
+  <main class="main-content">
+    <section class="resumen">
+      <div class="tarjeta"><h3>Total Inscritos</h3><p>1560</p></div>
+      <div class="tarjeta"><h3>Técnico</h3><p>450</p></div>
+      <div class="tarjeta"><h3>Tecnología</h3><p>780</p></div>
+      <div class="tarjeta"><h3>Profesional</h3><p>330</p></div>
+    </section>
+
+    <section class="graficas" id="contenedorGraficas">
+      <!-- Gráficas dinámicas -->
+    </section>
+  </main>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
