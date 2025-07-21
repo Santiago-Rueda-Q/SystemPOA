@@ -370,11 +370,18 @@ $camposPorTipo = [
             border-color: #3b8cde;
             box-shadow: 0 0 0 3px rgba(59, 140, 222, 0.1);
         }
+        .header-height {
+            height: 80px;
+        }
+        .main-container {
+            height: calc(100vh - 80px);
+            margin-top: 80px;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
     <!-- Header -->
-    <div class="gradient-bg text-white p-4 shadow-lg">
+    <div class="gradient-bg text-white p-4 shadow-lg fixed top-0 left-0 right-0 z-50 header-height flex items-center">
         <div class="flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <i class="fas fa-graduation-cap text-2xl"></i>
@@ -389,7 +396,7 @@ $camposPorTipo = [
         </div>
     </div>
 
-    <div class="flex h-screen">
+    <div class="flex main-container">
         <!-- Sidebar -->
         <aside class="w-80 gradient-bg text-white shadow-xl overflow-y-auto">
             <div class="p-6">
