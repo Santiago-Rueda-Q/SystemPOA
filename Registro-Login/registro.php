@@ -46,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo "Registro exitoso. Usuario creado correctamente.";
         
         // Opcional: Redirigir al login después del registro exitoso
-        // header("Location: ../index.html?success=1");
-        // exit;
+        header("Location: ../dashboard.php");
+        exit;
         
     } catch (PDOException $e) {
         echo "Error al registrar: " . $e->getMessage();

@@ -35,14 +35,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo "Bienvenido, " . $usuario['nombre'] . " (" . $usuario['rol'] . ")";
             
             // Opcional: Redirigir a una página de dashboard según el rol
-            /*
+            
             if ($usuario['rol'] === 'Director') {
-                header("Location: ../dashboard_director.php");
+                header("Location: ../dashboard.php");
             } else {
-                header("Location: ../dashboard_docente.php");
+                header("Location: ../dashboard.php");
             }
             exit;
-            */
+        
             
         } else {
             echo "Credenciales inválidas. Verifica tu email y contraseña.";
