@@ -231,4 +231,4 @@ function showNotification(message, type = 'info') {
 }
 
 // Ejemplo de uso de notificaciones
-// showNotification('Dashboard cargado correctamente', 'success');
+showNotification('Dashboard cargado correctamente', 'success');

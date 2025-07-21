@@ -112,7 +112,8 @@ $email_usuario = $_SESSION['usuario_email'];
                     <div class="stat-info">
                         <h3>Tecnología</h3>
                         <p class="stat-number">780</p>
-                    </div>
+
+                      </div>
                 </div>
 
                 <div class="stat-card quaternary">
@@ -122,7 +123,8 @@ $email_usuario = $_SESSION['usuario_email'];
                     <div class="stat-info">
                         <h3>Profesional</h3>
                         <p class="stat-number">330</p>
-                    </div>
+
+                      </div>
                 </div>
             </section>
 
