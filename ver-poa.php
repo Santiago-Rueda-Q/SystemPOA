@@ -19,19 +19,20 @@ if ($_POST && isset($_POST['accion']) && $_POST['accion'] === 'actualizar') {
         $categoria = $_POST['categoria'];
         $id = $_POST['id'];
         $campos = [];
+        $valores = [];
         
         // Procesar cada campo del formulario
         foreach ($_POST as $key => $value) {
             if ($key !== 'categoria' && $key !== 'id' && $key !== 'accion' && !empty($value)) {
                 // Convertir campos boolean
-                $booleanFields = ['realizado', 'terminado', 'realizada', 'concretada', 'aprobado', 'terminados'];
+                $booleanFields = ['realizado', 'true', 'TRUE', 'concretada', 'aprobado', 'terminados'];
                 
                 if (in_array($key, $booleanFields)) {
-                    if (strtoupper($value) === 'SI' || strtoupper($value) === 'SÍ') {
-                        $campos[] = "$key = true";
-                    } else {
-                        $campos[] = "$key = false";
-                    }
+                if (strtoupper($value) === 'SI' || strtoupper($value) === 'SÍ') {
+                    $campos[] = "$key = 1";
+                } else {
+                    $campos[] = "$key = 0";
+                }
                 } else {
                     $campos[] = "$key = ?";
                     $valores[] = $value;
@@ -366,7 +367,7 @@ function obtenerRegistros($conn, $tabla) {
         $sql = "SELECT * FROM $tabla ORDER BY id DESC";
         $stmt = $conn->prepare($sql);
         $stmt->execute();
-        return $stmt->fetchAll();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         return [];
     }
@@ -422,12 +423,24 @@ function obtenerRegistros($conn, $tabla) {
             height: calc(100vh - 80px);
             margin-top: 80px;
         }
+        .btn-edit {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+        .btn-edit:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+        }
+        .btn-delete {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        .btn-delete:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        }
     </style>
 </head>
 <body class="bg-gray-100">
     <!-- Header -->
     <div class="gradient-bg text-white p-4 shadow-lg fixed top-0 left-0 right-0 z-50 header-height flex items-center">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between w-full">
             <div class="flex items-center space-x-3">
                 <i class="fas fa-graduation-cap text-2xl"></i>
                 <h1 class="text-2xl font-bold">SystemPOA</h1>
@@ -563,6 +576,19 @@ function obtenerRegistros($conn, $tabla) {
     let categoriaActual = '';
     let registroAEliminar = null;
     
+    // Función para generar opciones de semestres
+    function generarSemestres() {
+        const currentYear = new Date().getFullYear();
+        const semestres = [];
+        
+        for (let year = 2025; year <= currentYear + 5; year++) {
+            semestres.push(`${year}-1`);
+            semestres.push(`${year}-2`);
+        }
+        
+        return semestres;
+    }
+    
     async function mostrarTabla(categoria) {
         categoriaActual = categoria;
         
@@ -570,9 +596,7 @@ function obtenerRegistros($conn, $tabla) {
         document.querySelectorAll('.category-item').forEach(item => {
             item.classList.remove('active');
         });
-        if (event && event.target) {
-            event.target.classList.add('active');
-        }
+        event.target.classList.add('active');
         
         // Ocultar otros elementos
         document.getElementById('estado-inicial').classList.add('hidden');
@@ -583,11 +607,16 @@ function obtenerRegistros($conn, $tabla) {
         document.getElementById('tabla-titulo').textContent = categoria.replace(/_/g, ' ').toUpperCase();
         
         try {
-            // Cargar registros via AJAX
-            const response = await fetch(`obtener_registros.php?tabla=${categoria}`);
-            const registros = await response.json();
+            // Obtener registros via PHP
+            const registros = <?php 
+                $registrosPorCategoria = [];
+                foreach (array_keys($camposPorTipo) as $cat) {
+                    $registrosPorCategoria[$cat] = obtenerRegistros($conn, $cat);
+                }
+                echo json_encode($registrosPorCategoria);
+            ?>;
             
-            generarTabla(categoria, registros);
+            generarTabla(categoria, registros[categoria] || []);
             document.getElementById('tabla-registros').classList.remove('hidden');
             
         } catch (error) {
@@ -619,7 +648,7 @@ function obtenerRegistros($conn, $tabla) {
             return;
         }
         
-        // Generar encabezados
+// Generar encabezados
         const campos = Object.keys(camposPorTipo[categoria]);
         const headerRow = document.createElement('tr');
         headerRow.className = 'bg-gray-50';
@@ -641,7 +670,7 @@ function obtenerRegistros($conn, $tabla) {
         registros.forEach(registro => {
             const row = document.createElement('tr');
             row.className = 'table-hover border-b border-gray-200';
-            row.setAttribute('data-id', registro.id); // Agregar data-id para verificación
+            row.setAttribute('data-id', registro.id);
             
             // ID cell
             row.innerHTML = `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${registro.id}</td>`;
@@ -651,28 +680,33 @@ function obtenerRegistros($conn, $tabla) {
                 let valor = registro[campo] || '';
                 
                 // Format boolean values
-                if (typeof valor === 'boolean') {
-                    valor = valor ? 'SÍ' : 'NO';
-                }
-                
-                // Truncate long text
-                if (typeof valor === 'string' && valor.length > 50) {
-                    valor = valor.substring(0, 50) + '...';
+                if (valor === 1 || valor === '1' || valor === 0 || valor === '0' || valor === 'true' || valor === 'false') {
+                    valor = (valor == 1 || valor === '1') ? 
+                           '<span class="text-green-600 font-medium">SI</span>' : 
+                           '<span class="text-red-600 font-medium">NO</span>';
+                } else if (campo === 'evidencia_link' && valor) {
+                    valor = `<a href="${valor}" target="_blank" class="text-blue-600 hover:underline"><i class="fas fa-external-link-alt"></i> Ver</a>`;
+                } else {
+                    // Truncar texto largo
+                    if (typeof valor === 'string' && valor.length > 50) {
+                        valor = valor.substring(0, 50) + '...';
+                    }
+                    valor = valor || '-';
                 }
                 
                 row.innerHTML += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${valor}</td>`;
             });
             
-            // Actions cell
+            // Actions cell - COMPLETANDO LA PARTE FALTANTE
             row.innerHTML += `
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button onclick="editarRegistro('${categoria}', ${registro.id})" 
-                            class="text-blue-600 hover:text-blue-900 mr-3">
-                        <i class="fas fa-edit"></i> Editar
+                            class="btn-edit text-white px-3 py-1 rounded-lg mr-2 hover-scale transition">
+                        <i class="fas fa-edit mr-1"></i>Editar
                     </button>
                     <button onclick="eliminarRegistro('${categoria}', ${registro.id})" 
-                            class="text-red-600 hover:text-red-900">
-                        <i class="fas fa-trash"></i> Eliminar
+                            class="btn-delete text-white px-3 py-1 rounded-lg hover-scale transition">
+                        <i class="fas fa-trash mr-1"></i>Eliminar
                     </button>
                 </td>
             `;
@@ -680,75 +714,119 @@ function obtenerRegistros($conn, $tabla) {
             tbody.appendChild(row);
         });
     }
-    
-    async function editarRegistro(categoria, id) {
-        try {
-            const response = await fetch(`obtener_registro.php?tabla=${categoria}&id=${id}`);
-            const registro = await response.json();
-            
-            if (registro) {
-                mostrarFormularioEdicion(categoria, registro);
-            }
-        } catch (error) {
-            console.error('Error al cargar registro:', error);
+
+    function editarRegistro(categoria, id) {
+    // Obtener los registros desde PHP
+    const todosLosRegistros = <?php 
+        $registrosPorCategoria = [];
+        foreach (array_keys($camposPorTipo) as $cat) {
+            $registrosPorCategoria[$cat] = obtenerRegistros($conn, $cat);
         }
-    }
+        echo json_encode($registrosPorCategoria);
+    ?>;
     
-    function mostrarFormularioEdicion(categoria, registro) {
-        document.getElementById('edit-categoria').value = categoria;
-        document.getElementById('edit-id').value = registro.id;
+    const registros = todosLosRegistros[categoria] || [];
+    const registro = registros.find(r => r.id == id);
+    
+    if (!registro) {
+        alert('Registro no encontrado');
+        return;
+    }
+
+    // Mostrar formulario de edición
+    document.getElementById('tabla-registros').classList.add('hidden');
+    document.getElementById('formulario-edicion').classList.remove('hidden');
+    
+    // Llenar campos ocultos
+    document.getElementById('edit-categoria').value = categoria;
+    document.getElementById('edit-id').value = id;
+    
+    // Generar campos de edición
+    const camposContainer = document.getElementById('campos-edicion');
+    const campos = camposPorTipo[categoria];
+    let camposHTML = '';
+    
+    Object.keys(campos).forEach(campo => {
+        const tipo = campos[campo];
+        const valor = registro[campo] || '';
+        let inputHTML = '';
         
-        const camposEdicion = document.getElementById('campos-edicion');
-        camposEdicion.innerHTML = '';
-        
-        // Generar campos de edición
-        if (camposPorTipo[categoria]) {
-            Object.entries(camposPorTipo[categoria]).forEach(([campo, tipo]) => {
-                const label = campo.replace(/_/g, ' ').toUpperCase();
-                const valor = registro[campo] || '';
-                let inputHTML = '';
+        switch (tipo) {
+            case 'text':
+                inputHTML = `<input type="text" name="${campo}" value="${valor}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">`;
+                break;
+            case 'number':
+                inputHTML = `<input type="number" name="${campo}" value="${valor}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">`;
+                break;
+            case 'date':
+                inputHTML = `<input type="date" name="${campo}" value="${valor}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">`;
+                break;
+            case 'time':
+                inputHTML = `<input type="time" name="${campo}" value="${valor}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">`;
+                break;
+            case 'url':
+                inputHTML = `<input type="url" name="${campo}" value="${valor}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">`;
+                break;
+            case 'select':
+                // Determinar opciones basadas en el campo específico
+                let opciones = '';
+                const booleanFields = ['realizado', 'terminado', 'realizada', 'concretada', 'aprobado', 'terminados'];
                 
-                if (tipo === 'select') {
-                    const selected1 = (valor === true || valor === 'SI') ? 'selected' : '';
-                    const selected2 = (valor === false || valor === 'NO') ? 'selected' : '';
-                    inputHTML = `
-                        <select name="${campo}" class="w-full p-3 border border-gray-300 rounded-lg input-focus transition">
-                            <option value="">-- Seleccionar --</option>
-                            <option value="SI" ${selected1}>SÍ</option>
-                            <option value="NO" ${selected2}>NO</option>
-                        </select>
-                    `;
-                } else {
-                    const inputType = tipo === 'url' ? 'url' : tipo;
-                    inputHTML = `
-                        <input name="${campo}" 
-                                type="${inputType}" 
-                                value="${valor}"
-                                class="w-full p-3 border border-gray-300 rounded-lg input-focus transition" 
-                                ${tipo === 'url' ? 'placeholder="https://ejemplo.com"' : ''}>
+                if (booleanFields.includes(campo)) {
+                    const valorBoolean = (valor == 1 || valor === '1');                    opciones = `
+                        <option value="">Seleccionar...</option>
+                        <option value="SI" ${valorBoolean ? 'selected' : ''}>SÍ</option>
+                        <option value="NO" ${!valorBoolean ? 'selected' : ''}>NO</option>
                     `;
                 }
                 
-                const fieldHTML = `
-                    <div class="space-y-2">
-                        <label class="block text-sm font-semibold text-gray-700">
-                            <i class="fas fa-edit mr-2 text-blue-500"></i>
-                            ${label}
-                        </label>
-                        ${inputHTML}
-                    </div>
+                inputHTML = `
+                    <select name="${campo}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">
+                        ${opciones}
+                    </select>
                 `;
-                
-                camposEdicion.innerHTML += fieldHTML;
-            });
+                break;
+            case 'select_nivel':
+                inputHTML = `
+                    <select name="${campo}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">
+                        <option value="">Seleccionar...</option>
+                        <option value="Técnico" ${valor === 'Técnico' ? 'selected' : ''}>Técnico</option>
+                        <option value="Tecnología" ${valor === 'Tecnología' ? 'selected' : ''}>Tecnología</option>
+                        <option value="Profesional" ${valor === 'Profesional' ? 'selected' : ''}>Profesional</option>
+                    </select>
+                `;
+                break;
+            case 'select_semester':
+                const semestres = generarSemestres();
+                const opcionesSemestre = semestres.map(sem => 
+                    `<option value="${sem}" ${valor === sem ? 'selected' : ''}>${sem}</option>`
+                ).join('');
+                inputHTML = `
+                    <select name="${campo}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">
+                        <option value="">Seleccionar...</option>
+                        ${opcionesSemestre}
+                    </select>
+                `;
+                break;
+            default:
+                inputHTML = `<input type="text" name="${campo}" value="${valor}" class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition">`;
         }
         
-        document.getElementById('formulario-edicion').classList.remove('hidden');
-        document.getElementById('formulario-edicion').scrollIntoView({ behavior: 'smooth' });
+        camposHTML += `
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    ${campo.replace(/_/g, ' ').toUpperCase()}
+                </label>
+                ${inputHTML}
+            </div>
+        `;
+    });
+    
+    camposContainer.innerHTML = camposHTML;
     }
 
     function eliminarRegistro(categoria, id) {
-        registroAEliminar = { categoria: categoria, id: id };
+        registroAEliminar = { categoria, id };
         document.getElementById('modal-eliminar').classList.remove('hidden');
         document.getElementById('modal-eliminar').classList.add('flex');
     }
@@ -759,154 +837,123 @@ function obtenerRegistros($conn, $tabla) {
         registroAEliminar = null;
     }
 
-    
     async function confirmarEliminacion() {
-        if (!registroAEliminar) return;
+    if (!registroAEliminar) return;
+    
+    const { categoria, id } = registroAEliminar;
+    
+    try {
+        const formData = new FormData();
+        formData.append('accion', 'eliminar');
+        formData.append('categoria', categoria);
+        formData.append('id', id);
         
-        // Mostrar mensaje de procesamiento
-        const mensajeProcesando = mostrarMensajeCarga('Eliminando registro...');
-        
-        try {
-            // Crear formulario para envío POST
-            const formData = new FormData();
-            formData.append('accion', 'eliminar');
-            formData.append('categoria', registroAEliminar.categoria);
-            formData.append('id', registroAEliminar.id);
-            
-            // Enviar solicitud de eliminación
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (response.ok) {
-                // Ocultar mensaje de carga
-                ocultarMensajeCarga(mensajeProcesando);
-                
-
-                const eliminacionExitosa = await verificarEliminacionPorDOM(registroAEliminar.categoria, registroAEliminar.id);
-                
-                if (eliminacionExitosa) {
-                    mostrarMensaje('Registro eliminado exitosamente', 'success');
-                } else {
-                    mostrarMensaje('El registro se está eliminando, por favor espera...', 'info');
-                    // Recargar después de un delay adicional
-                    setTimeout(async () => {
-                        await mostrarTabla(registroAEliminar.categoria);
-                        mostrarMensaje('Registro eliminado exitosamente', 'success');
-                    }, 3000);
-                }
-                
-                // Cerrar modal
-                cerrarModalEliminar();
-            } else {
-                ocultarMensajeCarga(mensajeProcesando);
-                throw new Error('Error en la respuesta del servidor');
-            }
-            
-        } catch (error) {
-            ocultarMensajeCarga(mensajeProcesando);
-            console.error('Error al eliminar registro:', error);
-            mostrarMensaje('Error al eliminar el registro', 'error');
-            cerrarModalEliminar();
-        }
-    }
-
-
-    async function verificarEliminacionPorDOM(categoria, id) {
-        try {
-            // Esperar 2 segundos para que la BD procese
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Recargar la tabla
-            await mostrarTabla(categoria);
-            
-            // Verificar si el elemento sigue en el DOM
-            const elemento = document.querySelector(`tr[data-id="${id}"]`);
-            
-            // Si no existe el elemento, la eliminación fue exitosa
-            return !elemento;
-            
-        } catch (error) {
-            console.error('Error en verificación por DOM:', error);
-            return false; // En caso de error, asumir que no se eliminó
-        }
-    }
-
-    // Mensaje de carga simple
-    function mostrarMensajeCarga(mensaje) {
-        const mensajeDiv = document.createElement('div');
-        mensajeDiv.id = 'mensaje-carga-unico';
-        mensajeDiv.className = 'fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 bg-blue-500 text-white';
-        
-        mensajeDiv.innerHTML = `
-            <div class="flex items-center">
-                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                ${mensaje}
-            </div>
-        `;
-        
-        document.body.appendChild(mensajeDiv);
-        return mensajeDiv;
-    }
-
-    function ocultarMensajeCarga(mensajeDiv) {
-        if (mensajeDiv && mensajeDiv.parentNode) {
-            mensajeDiv.parentNode.removeChild(mensajeDiv);
-        }
-        // También remover por ID como respaldo
-        const elemento = document.getElementById('mensaje-carga-unico');
-        if (elemento && elemento.parentNode) {
-            elemento.parentNode.removeChild(elemento);
-        }
-    }
-
-    // Función mejorada para mostrar mensajes sin duplicados
-    function mostrarMensaje(mensaje, tipo) {
-        const mensajesAnteriores = document.querySelectorAll('.mensaje-notificacion');
-        mensajesAnteriores.forEach(msg => {
-            if (msg.parentNode) {
-                msg.parentNode.removeChild(msg);
-            }
+        const response = await fetch(window.location.href, {
+            method: 'POST',
+            body: formData
         });
         
-        const mensajeDiv = document.createElement('div');
-        mensajeDiv.className = `mensaje-notificacion fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50`;
+        if (response.ok) {
+            const responseText = await response.text();
+            if (responseText === 'OK') {
+                // Recargar la tabla después de eliminar
+                location.reload();
+            } else {
+                alert('Error al eliminar: ' + responseText);
+            }
+        } else {
+            alert('Error en la respuesta del servidor');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al eliminar el registro');
+    }
+    
+    cerrarModalEliminar();
+    }
+
+    function actualizarRegistro(event) {
+        event.preventDefault();
         
-        let claseColor, icono;
-        switch(tipo) {
-            case 'success':
-                claseColor = 'bg-green-500 text-white';
-                icono = 'fa-check-circle';
-                break;
-            case 'error':
-                claseColor = 'bg-red-500 text-white';
-                icono = 'fa-exclamation-triangle';
-                break;
-            case 'info':
-                claseColor = 'bg-yellow-500 text-white';
-                icono = 'fa-info-circle';
-                break;
-            default:
-                claseColor = 'bg-gray-500 text-white';
-                icono = 'fa-info-circle';
+        const formData = new FormData(event.target);
+        const categoria = formData.get('categoria');
+        const id = parseInt(formData.get('id'));
+        
+        // Simular actualización (en un caso real, se haría una petición al servidor)
+        const registros = registrosEjemplo[categoria];
+        const index = registros.findIndex(r => r.id === id);
+        
+        if (index !== -1) {
+            // Actualizar registro
+            const campos = Object.keys(camposPorTipo[categoria]);
+            campos.forEach(campo => {
+                const valor = formData.get(campo);
+                if (camposPorTipo[categoria][campo] === 'boolean') {
+                    registros[index][campo] = valor === 'true';
+                } else if (camposPorTipo[categoria][campo] === 'number') {
+                    registros[index][campo] = parseInt(valor) || 0;
+                } else {
+                    registros[index][campo] = valor || '';
+                }
+            });
+            
+            mostrarMensaje('Registro actualizado correctamente', 'success');
+            cancelarEdicion();
+            generarTabla(categoria, registros);
+        }
+    }
+
+    function cancelarEdicion() {
+        document.getElementById('formulario-edicion').classList.add('hidden');
+        document.getElementById('tabla-registros').classList.remove('hidden');
+    }
+
+    // Función para mostrar mensajes de éxito/error (mejorada)
+    function mostrarMensaje(texto, tipo) {
+        // Crear elemento de mensaje si no existe
+        let mensaje = document.getElementById('mensaje-dinamico');
+        if (!mensaje) {
+            mensaje = document.createElement('div');
+            mensaje.id = 'mensaje-dinamico';
+            mensaje.style.position = 'fixed';
+            mensaje.style.top = '100px';
+            mensaje.style.right = '20px';
+            mensaje.style.zIndex = '1000';
+            mensaje.style.padding = '12px 20px';
+            mensaje.style.borderRadius = '8px';
+            mensaje.style.fontWeight = '500';
+            mensaje.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            document.body.appendChild(mensaje);
         }
         
-        mensajeDiv.className += ` ${claseColor}`;
+        // Configurar mensaje según tipo
+        if (tipo === 'error') {
+            mensaje.className = 'bg-red-500 text-white border border-red-600';
+            mensaje.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i>${texto}`;
+        } else {
+            mensaje.className = 'bg-green-500 text-white border border-green-600';
+            mensaje.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${texto}`;
+        }
         
-        mensajeDiv.innerHTML = `
-            <div class="flex items-center">
-                <i class="fas ${icono} mr-2"></i>
-                ${mensaje}
-            </div>
-        `;
+        mensaje.style.display = 'block';
         
-        document.body.appendChild(mensajeDiv);
-        
+        // Ocultar después de 4 segundos
         setTimeout(() => {
-            if (mensajeDiv.parentNode) {
-                mensajeDiv.parentNode.removeChild(mensajeDiv);
-            }
+            mensaje.style.display = 'none';
         }, 4000);
     }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const formEdicion = document.getElementById('form-edicion');
+        if (formEdicion) {
+            formEdicion.addEventListener('submit', function(e) {
+                e.preventDefault();
+                // Enviar formulario
+                this.submit();
+            });
+        }
+    });
 </script>
+
+</body>
+</html>

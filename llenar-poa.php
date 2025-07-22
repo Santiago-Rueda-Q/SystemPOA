@@ -30,18 +30,22 @@ if ($_POST && isset($_POST['categoria'])) {
         
         // Procesar cada campo del formulario
         foreach ($_POST as $key => $value) {
-            if ($key !== 'categoria' && $key !== 'unificacion_id' && !empty($value)) {
+            if ($key !== 'categoria' && $key !== 'unificacion_id' && $value !== '') {
                 $campos[] = $key;
                 
-                // Convertir "realizado", "terminado", "realizada", "concretada", "aprobado" a boolean
-                $booleanFields = ['realizado', 'terminado', 'realizada', 'concretada', 'aprobado', 'terminados'];
+                // Definir todos los campos que manejan SI/NO
+                $camposBooleanos = [
+                    'realizado', 'terminado', 'realizada', 'concretada', 
+                    'aprobado', 'terminados'
+                ];
                 
-                if (in_array($key, $booleanFields)) {
-                    // Convertir a boolean
-                    if (strtoupper($value) === 'SI' || strtoupper($value) === 'SÍ') {
-                        $valores[] = true;
+                if (in_array($key, $camposBooleanos)) {
+                    // Manejo unificado para SI/NO
+                    $valorLimpio = strtoupper(trim($value));
+                    if ($valorLimpio === 'SI' || $valorLimpio === 'SÍ') {
+                        $valores[] = 1; // TRUE como 1
                     } else {
-                        $valores[] = false;
+                        $valores[] = 0; // FALSE como 0 (incluyendo "NO")
                     }
                 } else {
                     $valores[] = $value;
@@ -373,9 +377,6 @@ $camposPorTipo = [
         .category-item:hover {
             background: linear-gradient(135deg, #3b8cde 0%, #5ba3e8 100%);
             transform: translateX(5px);
-        }
-        .category-item.active {
-            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
         }
         .form-container {
             background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
