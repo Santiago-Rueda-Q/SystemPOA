@@ -13,6 +13,36 @@ if (!isset($_SESSION['usuario_nombre'])) {
 // Obtener datos del usuario de la sesión
 $nombre_usuario = $_SESSION['usuario_nombre'];
 
+if (isset($_GET['action']) && $_GET['action'] === 'get_records') {
+    $categoria = $_GET['categoria'] ?? '';
+    
+    if (!empty($categoria)) {
+        header('Content-Type: application/json');
+        
+        try {
+            // Agregar LIMIT para mejorar rendimiento
+            $sql = "SELECT * FROM $categoria ORDER BY id DESC LIMIT 100";
+            $stmt = $conn->prepare($sql);
+            $stmt->execute();
+            $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            echo json_encode([
+                'success' => true,
+                'data' => $registros,
+                'count' => count($registros)
+            ]);
+        } catch (PDOException $e) {
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Categoría no especificada']);
+    }
+    exit;
+}
+
 // Procesar actualización cuando se envía
 if ($_POST && isset($_POST['accion']) && $_POST['accion'] === 'actualizar') {
     try {
@@ -28,11 +58,11 @@ if ($_POST && isset($_POST['accion']) && $_POST['accion'] === 'actualizar') {
                 $booleanFields = ['realizado', 'true', 'TRUE', 'concretada', 'aprobado', 'terminados'];
                 
                 if (in_array($key, $booleanFields)) {
-                if (strtoupper($value) === 'SI' || strtoupper($value) === 'SÍ') {
-                    $campos[] = "$key = 1";
-                } else {
-                    $campos[] = "$key = 0";
-                }
+                    if (strtoupper($value) === 'SI' || strtoupper($value) === 'SÍ') {
+                        $campos[] = "$key = 1";
+                    } else {
+                        $campos[] = "$key = 0";
+                    }
                 } else {
                     $campos[] = "$key = ?";
                     $valores[] = $value;
@@ -361,17 +391,7 @@ $camposPorTipo = [
     ]
 ];
 
-// Función para obtener registros de una tabla
-function obtenerRegistros($conn, $tabla) {
-    try {
-        $sql = "SELECT * FROM $tabla ORDER BY id DESC";
-        $stmt = $conn->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        return [];
-    }
-}
+
 ?>
 
 <!DOCTYPE html>
@@ -575,6 +595,7 @@ function obtenerRegistros($conn, $tabla) {
     const camposPorTipo = <?= json_encode($camposPorTipo) ?>;
     let categoriaActual = '';
     let registroAEliminar = null;
+    let registrosActuales = [];
     
     // Función para generar opciones de semestres
     function generarSemestres() {
@@ -602,25 +623,43 @@ function obtenerRegistros($conn, $tabla) {
         document.getElementById('estado-inicial').classList.add('hidden');
         document.getElementById('formulario-edicion').classList.add('hidden');
         
+        // Mostrar indicador de carga
+        document.getElementById('tabla-registros').classList.remove('hidden');
+        document.getElementById('tabla-body').innerHTML = `
+            <tr>
+                <td colspan="100%" class="text-center py-8">
+                    <i class="fas fa-spinner fa-spin text-blue-500 text-2xl mb-2"></i>
+                    <p class="text-gray-600">Cargando registros...</p>
+                </td>
+            </tr>
+        `;
+
         // Actualizar títulos
         document.getElementById('main-title').textContent = `Registros: ${categoria.replace(/_/g, ' ').toUpperCase()}`;
         document.getElementById('tabla-titulo').textContent = categoria.replace(/_/g, ' ').toUpperCase();
         
         try {
-            // Obtener registros via PHP
-            const registros = <?php 
-                $registrosPorCategoria = [];
-                foreach (array_keys($camposPorTipo) as $cat) {
-                    $registrosPorCategoria[$cat] = obtenerRegistros($conn, $cat);
-                }
-                echo json_encode($registrosPorCategoria);
-            ?>;
+            // Cargar datos vía AJAX
+            const response = await fetch(`?action=get_records&categoria=${categoria}`);
+            const result = await response.json();
             
-            generarTabla(categoria, registros[categoria] || []);
-            document.getElementById('tabla-registros').classList.remove('hidden');
+            if (result.success) {
+                registrosActuales = result.data;
+                generarTabla(categoria, result.data);
+            } else {
+                throw new Error(result.error || 'Error desconocido');
+            }
             
         } catch (error) {
             console.error('Error al cargar registros:', error);
+            document.getElementById('tabla-body').innerHTML = `
+                <tr>
+                    <td colspan="100%" class="text-center py-8 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                        <p>Error al cargar los registros: ${error.message}</p>
+                    </td>
+                </tr>
+            `;
         }
     }
     
@@ -648,7 +687,7 @@ function obtenerRegistros($conn, $tabla) {
             return;
         }
         
-// Generar encabezados
+        // Generar encabezados
         const campos = Object.keys(camposPorTipo[categoria]);
         const headerRow = document.createElement('tr');
         headerRow.className = 'bg-gray-50';
@@ -716,30 +755,21 @@ function obtenerRegistros($conn, $tabla) {
     }
 
     function editarRegistro(categoria, id) {
-    // Obtener los registros desde PHP
-    const todosLosRegistros = <?php 
-        $registrosPorCategoria = [];
-        foreach (array_keys($camposPorTipo) as $cat) {
-            $registrosPorCategoria[$cat] = obtenerRegistros($conn, $cat);
+        // Buscar en los registros ya cargados
+        const registro = registrosActuales.find(r => r.id == id);
+    
+        if (!registro) {
+                alert('Registro no encontrado');
+                return;
         }
-        echo json_encode($registrosPorCategoria);
-    ?>;
-    
-    const registros = todosLosRegistros[categoria] || [];
-    const registro = registros.find(r => r.id == id);
-    
-    if (!registro) {
-        alert('Registro no encontrado');
-        return;
-    }
 
-    // Mostrar formulario de edición
-    document.getElementById('tabla-registros').classList.add('hidden');
-    document.getElementById('formulario-edicion').classList.remove('hidden');
+        // Mostrar formulario de edición
+        document.getElementById('tabla-registros').classList.add('hidden');
+        document.getElementById('formulario-edicion').classList.remove('hidden');
     
-    // Llenar campos ocultos
-    document.getElementById('edit-categoria').value = categoria;
-    document.getElementById('edit-id').value = id;
+        // Llenar campos ocultos
+        document.getElementById('edit-categoria').value = categoria;
+        document.getElementById('edit-id').value = id;
     
     // Generar campos de edición
     const camposContainer = document.getElementById('campos-edicion');
@@ -775,7 +805,7 @@ function obtenerRegistros($conn, $tabla) {
                 if (booleanFields.includes(campo)) {
                     const valorBoolean = (valor == 1 || valor === '1');                    opciones = `
                         <option value="">Seleccionar...</option>
-                        <option value="SI" ${valorBoolean ? 'selected' : ''}>SÍ</option>
+                        <option value="SI" ${valorBoolean ? 'selected' : ''}>SI</option>
                         <option value="NO" ${!valorBoolean ? 'selected' : ''}>NO</option>
                     `;
                 }
