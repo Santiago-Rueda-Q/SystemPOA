@@ -3,7 +3,7 @@ session_start();
 
 // Verificar si el usuario está logueado
 if (!isset($_SESSION['usuario_nombre'])) {
-    header("Location: index.html");
+    header("Location: index.php");
     exit;
 }
 

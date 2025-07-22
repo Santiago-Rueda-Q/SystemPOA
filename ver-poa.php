@@ -2,6 +2,17 @@
 // Incluir la conexión a la base de datos
 require_once 'conexion.php';
 
+session_start();
+
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['usuario_nombre'])) {
+    header("Location: index.php");
+    exit;
+}
+
+// Obtener datos del usuario de la sesión
+$nombre_usuario = $_SESSION['usuario_nombre'];
+
 // Procesar actualización cuando se envía
 if ($_POST && isset($_POST['accion']) && $_POST['accion'] === 'actualizar') {
     try {
@@ -73,59 +84,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['
 // Definir los campos por tipo de actividad
 $camposPorTipo = [
     "ppa" => [
-        "nivel_formacion" => "text",
+        "nivel_formacion" => "select_nivel",
         "ppa_realizado" => "text", 
         "terminado" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "visita_regional" => [
         "visitas_regionales" => "text",
         "estudiantes" => "number",
         "realizado" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "visita_nacional" => [
         "visita_nacional" => "text",
         "estudiantes" => "number",
         "realizada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "charlas" => [
         "nombre_evento" => "text",
         "estudiantes" => "number",
         "realizada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "feria" => [
         "nombre_evento" => "text",
         "estudiantes" => "number",
         "realizada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "congreso" => [
         "nombre_evento" => "text",
         "estudiantes" => "number",
         "realizado" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "evento_nacional" => [
         "nombre_evento" => "text",
         "estudiantes" => "number",
         "realizado" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "biblio" => [
         "asignaturas_programadas" => "text",
         "bibliografia_ingles" => "text",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "profesor_visitante" => [
         "profesor" => "text",
@@ -133,14 +144,14 @@ $camposPorTipo = [
         "estudiantes" => "number",
         "realizada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "actividades_interculturales" => [
         "actividad" => "text",
         "estudiantes" => "number",
         "realizada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "actividades_universidades_internacionales" => [
         "actividad" => "text",
@@ -148,14 +159,14 @@ $camposPorTipo = [
         "estudiantes" => "number",
         "realizada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "productos_en_ingles" => [
         "producto" => "text",
         "estudiantes" => "number",
         "terminados" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "ppa_traducidos" => [
         "documento" => "text",
@@ -163,7 +174,7 @@ $camposPorTipo = [
         "asignatura" => "text",
         "terminados" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "coil" => [
         "universidad" => "text",
@@ -171,7 +182,7 @@ $camposPorTipo = [
         "tema" => "text",
         "realizada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "clase_espejo" => [
         "universidad" => "text",
@@ -179,7 +190,7 @@ $camposPorTipo = [
         "tema" => "text",
         "realizada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "reto_empresa" => [
         "empresa" => "text",
@@ -187,73 +198,73 @@ $camposPorTipo = [
         "estudiantes" => "number",
         "realizado" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "grupo_focal" => [
         "experto" => "text",
         "fecha_comite" => "date",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "estudio_tendencias" => [
         "informe" => "text",
         "fecha_elaboracion" => "date",
         "acta_comite" => "text",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "analisis_contexto" => [
         "informe" => "text",
         "fecha_elaboracion" => "date",
         "acta_comite" => "text",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "autoevaluacion_mejoras" => [
         "informe" => "text",
         "fecha_elaboracion" => "date",
         "acta_comite" => "text",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "empresas_practicas" => [
         "empresa" => "text",
         "concretada" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "graduados" => [
         "actividades_programadas" => "number",
         "actividades_realizadas" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "mesa_sector" => [
         "participacion" => "text",
         "fecha_encuentro" => "date",
         "tema" => "text",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "mejoras_practicas" => [
         "accion" => "text",
         "fecha_implementacion" => "date",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "diplomado_grado" => [
-        "nivel_formacion" => "text",
+        "nivel_formacion" => "select_nivel",
         "tema" => "text",
         "estudiantes" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "formacion_continua" => [
         "curso" => "text",
         "estudiantes" => "number",
         "aprobado" => "select",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "mbc_refuerzos" => [
         "competencia" => "text",
@@ -261,19 +272,19 @@ $camposPorTipo = [
         "docente" => "text",
         "actividades_verificadas" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "taller_refuerzo_saber" => [
         "taller" => "text",
         "estudiantes" => "number",
         "fecha" => "date",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "proyecto_grado" => [
         "propuesta" => "text",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "visita_aula" => [
         "docente" => "text",
@@ -283,69 +294,69 @@ $camposPorTipo = [
         "aula" => "text",
         "calificacion" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "estudio_semilleros_estudiantes" => [
         "estudiante" => "text",
         "fecha_ingreso" => "date",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "estudio_semilleros_docentes" => [
         "docente" => "text",
         "fecha_ingreso" => "date",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "pep" => [
         "proyecto" => "text",
         "fecha_actualizacion" => "date",
         "fecha_aprobacion" => "date",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "herramientas" => [
         "herramienta" => "text",
         "asignatura" => "text",
         "fecha_incorporacion" => "date",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "micrositio" => [
         "actualizacion" => "text",
         "fecha_actualizacion" => "date",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "modalidad_virtual" => [
         "modulo" => "text",
         "cantidad" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "sitio_interaccion" => [
         "espacio" => "text",
         "cantidad" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "atlas" => [
         "registro" => "text",
         "cantidad" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "seguimiento_estudiantes" => [
         "seguimiento" => "text",
         "cantidad" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ],
     "matricula_estudiantes_antiguos" => [
         "matricula" => "text",
         "cantidad" => "number",
         "evidencia_link" => "url",
-        "semester" => "number"
+        "semester" => "select_semester"
     ]
 ];
 
@@ -422,7 +433,7 @@ function obtenerRegistros($conn, $tabla) {
                 <h1 class="text-2xl font-bold">SystemPOA</h1>
             </div>
             <div class="flex items-center space-x-4">
-                <span class="text-sm opacity-90">¡Bienvenido, Santiago R!</span>
+                <span class="text-sm opacity-90">¡Bienvenido, <?php echo htmlspecialchars($nombre_usuario); ?>!</span>
                 <a href="dashboard.php" class="bg-white bg-opacity-20 px-4 py-2 rounded-lg hover:bg-opacity-30 transition">
                     <i class="fas fa-arrow-left mr-2"></i>Dashboard
                 </a>
@@ -748,8 +759,7 @@ function obtenerRegistros($conn, $tabla) {
         registroAEliminar = null;
     }
 
-    // SOLUCIÓN OPTIMIZADA: Solo reemplaza estas funciones en tu script actual
-
+    
     async function confirmarEliminacion() {
         if (!registroAEliminar) return;
         
@@ -773,7 +783,7 @@ function obtenerRegistros($conn, $tabla) {
                 // Ocultar mensaje de carga
                 ocultarMensajeCarga(mensajeProcesando);
                 
-                // MÉTODO OPTIMIZADO: Verificar eliminación por DOM en lugar de base de datos
+
                 const eliminacionExitosa = await verificarEliminacionPorDOM(registroAEliminar.categoria, registroAEliminar.id);
                 
                 if (eliminacionExitosa) {
@@ -802,7 +812,7 @@ function obtenerRegistros($conn, $tabla) {
         }
     }
 
-    // Verificación optimizada usando solo el DOM (sin consultas adicionales a la BD)
+
     async function verificarEliminacionPorDOM(categoria, id) {
         try {
             // Esperar 2 segundos para que la BD procese
