@@ -710,6 +710,24 @@ $camposPorTipo = obtenerCategoriasDisponibles($conn, $usuario_id, $usuario_rol);
             height: calc(100vh - 80px);
             margin-top: 80px;
         }
+        .field-label {
+            display: flex !important;
+            width: 100% !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+            padding: 0.5rem 0 !important;
+            font-weight: 600 !important;
+            color: #374151 !important;
+            font-size: 0.875rem !important;
+        }
+        .field-label .label-text {
+            flex: 1 !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+        .field-container {
+            width: 100% !important;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -894,10 +912,10 @@ $camposPorTipo = obtenerCategoriasDisponibles($conn, $usuario_id, $usuario_rol);
                     }
                     
                     const fieldHTML = `
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-gray-700">
-                                <i class="fas fa-edit mr-2 text-blue-500"></i>
-                                ${label}
+                        <div class="field-container space-y-2">
+                            <label class="field-label">
+                                <i class="fas fa-edit text-blue-500 flex-shrink-0"></i>
+                                <span class="label-text">${label}</span>
                             </label>
                             ${inputHTML}
                         </div>

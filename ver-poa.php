@@ -10,20 +10,43 @@ if (!isset($_SESSION['usuario_nombre'])) {
     exit;
 }
 
-// Obtener datos del usuario de la sesión
+// CORRECCIÓN: Obtener el nombre del usuario ANTES de usarlo
 $nombre_usuario = $_SESSION['usuario_nombre'];
+
+// Obtener datos del usuario de la sesión
+$stmt = $conn->prepare("SELECT id, rol FROM usuario WHERE nombre = ?");
+$stmt->execute([$nombre_usuario]);
+$usuario_data = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$usuario_data) {
+    header("Location: index.php");
+    exit;
+}
+
+$usuario_id = $usuario_data['id'];
+$usuario_rol = $usuario_data['rol'];
+
+// Obtener las categorías disponibles según el rol
+$camposPorTipo = obtenerCategoriasDisponibles($conn, $usuario_id, $usuario_rol);
 
 if (isset($_GET['action']) && $_GET['action'] === 'get_records') {
     $categoria = $_GET['categoria'] ?? '';
     
-    if (!empty($categoria)) {
+    if (!empty($categoria) && array_key_exists($categoria, $camposPorTipo)) {
         header('Content-Type: application/json');
         
         try {
-            // Agregar LIMIT para mejorar rendimiento
-            $sql = "SELECT * FROM $categoria ORDER BY id DESC LIMIT 100";
-            $stmt = $conn->prepare($sql);
-            $stmt->execute();
+            if ($usuario_rol === 'Docente') {
+                $sql = "SELECT * FROM $categoria ORDER BY id DESC LIMIT 100";
+                $stmt = $conn->prepare($sql);
+                $stmt->execute();
+            } else {
+                // Directores ven todos los registros
+                $sql = "SELECT * FROM $categoria ORDER BY id DESC LIMIT 100";
+                $stmt = $conn->prepare($sql);
+                $stmt->execute();
+            }
+            
             $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             echo json_encode([
@@ -38,52 +61,58 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_records') {
             ]);
         }
     } else {
-        echo json_encode(['success' => false, 'error' => 'Categoría no especificada']);
+        echo json_encode(['success' => false, 'error' => 'Categoría no especificada o sin acceso']);
     }
     exit;
 }
 
 // Procesar actualización cuando se envía
 if ($_POST && isset($_POST['accion']) && $_POST['accion'] === 'actualizar') {
-    try {
-        $categoria = $_POST['categoria'];
-        $id = $_POST['id'];
-        $campos = [];
-        $valores = [];
-        
-        // Procesar cada campo del formulario
-        foreach ($_POST as $key => $value) {
-            if ($key !== 'categoria' && $key !== 'id' && $key !== 'accion' && !empty($value)) {
-                // Convertir campos boolean
-                $booleanFields = ['realizado', 'true', 'TRUE', 'concretada', 'aprobado', 'terminados'];
-                
-                if (in_array($key, $booleanFields)) {
-                    if (strtoupper($value) === 'SI' || strtoupper($value) === 'SÍ') {
-                        $campos[] = "$key = 1";
+    $categoria = $_POST['categoria'];
+     
+    if (!array_key_exists($categoria, $camposPorTipo)) {
+        $mensaje = "No tienes acceso a esta categoría";
+        $tipo_mensaje = "error";
+    } else {
+        try {
+            $id = $_POST['id'];
+            $campos = [];
+            $valores = [];
+            
+            // Procesar cada campo del formulario
+            foreach ($_POST as $key => $value) {
+                if ($key !== 'categoria' && $key !== 'id' && $key !== 'accion' && !empty($value)) {
+                    // Convertir campos boolean
+                    $booleanFields = ['realizado', 'true', 'TRUE', 'concretada', 'aprobado', 'terminados'];
+                    
+                    if (in_array($key, $booleanFields)) {
+                        if (strtoupper($value) === 'SI' || strtoupper($value) === 'SÍ') {
+                            $campos[] = "$key = 1";
+                        } else {
+                            $campos[] = "$key = 0";
+                        }
                     } else {
-                        $campos[] = "$key = 0";
+                        $campos[] = "$key = ?";
+                        $valores[] = $value;
                     }
-                } else {
-                    $campos[] = "$key = ?";
-                    $valores[] = $value;
                 }
             }
-        }
-        
-        // Construir la consulta SQL de actualización
-        if (!empty($campos)) {
-            $sql = "UPDATE $categoria SET " . implode(', ', $campos) . " WHERE id = ?";
-            $valores[] = $id;
             
-            $stmt = $conn->prepare($sql);
-            $stmt->execute($valores);
-            
-            $mensaje = "Registro actualizado exitosamente";
-            $tipo_mensaje = "success";
+            // Construir la consulta SQL de actualización
+            if (!empty($campos)) {
+                $sql = "UPDATE $categoria SET " . implode(', ', $campos) . " WHERE id = ?";
+                $valores[] = $id;
+                
+                $stmt = $conn->prepare($sql);
+                $stmt->execute($valores);
+                
+                $mensaje = "Registro actualizado exitosamente";
+                $tipo_mensaje = "success";
+            }
+        } catch (PDOException $e) {
+            $mensaje = "Error al actualizar el registro: " . $e->getMessage();
+            $tipo_mensaje = "error";
         }
-    } catch (PDOException $e) {
-        $mensaje = "Error al actualizar el registro: " . $e->getMessage();
-        $tipo_mensaje = "error";
     }
 }
 
@@ -92,7 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['
     $categoria = $_POST['categoria'] ?? '';
     $id = $_POST['id'] ?? '';
     
-    if (!empty($categoria) && !empty($id)) {
+    // NUEVA VALIDACIÓN: Verificar acceso a la categoría
+    if (!empty($categoria) && !empty($id) && array_key_exists($categoria, $camposPorTipo)) {
         try {
             $stmt = $conn->prepare("DELETE FROM {$categoria} WHERE id = :id");
             $stmt->bindParam(':id', $id, PDO::PARAM_INT);
@@ -107,291 +137,599 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['
         }
     } else {
         http_response_code(400);
-        echo "Parámetros incompletos";
+        echo "Parámetros incompletos o sin acceso";
     }
     exit;
 }
 
 // Definir los campos por tipo de actividad
-$camposPorTipo = [
-    "ppa" => [
-        "nivel_formacion" => "select_nivel",
-        "ppa_realizado" => "text", 
-        "terminado" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "visita_regional" => [
-        "visitas_regionales" => "text",
-        "estudiantes" => "number",
-        "realizado" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "visita_nacional" => [
-        "visita_nacional" => "text",
-        "estudiantes" => "number",
-        "realizada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "charlas" => [
-        "nombre_evento" => "text",
-        "estudiantes" => "number",
-        "realizada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "feria" => [
-        "nombre_evento" => "text",
-        "estudiantes" => "number",
-        "realizada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "congreso" => [
-        "nombre_evento" => "text",
-        "estudiantes" => "number",
-        "realizado" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "evento_nacional" => [
-        "nombre_evento" => "text",
-        "estudiantes" => "number",
-        "realizado" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "biblio" => [
-        "asignaturas_programadas" => "text",
-        "bibliografia_ingles" => "text",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "profesor_visitante" => [
-        "profesor" => "text",
-        "tema" => "text",
-        "estudiantes" => "number",
-        "realizada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "actividades_interculturales" => [
-        "actividad" => "text",
-        "estudiantes" => "number",
-        "realizada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "actividades_universidades_internacionales" => [
-        "actividad" => "text",
-        "actividad_conjunta" => "text",
-        "estudiantes" => "number",
-        "realizada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "productos_en_ingles" => [
-        "producto" => "text",
-        "estudiantes" => "number",
-        "terminados" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "ppa_traducidos" => [
-        "documento" => "text",
-        "estudiantes" => "number",
-        "asignatura" => "text",
-        "terminados" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "coil" => [
-        "universidad" => "text",
-        "asignatura" => "text",
-        "tema" => "text",
-        "realizada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "clase_espejo" => [
-        "universidad" => "text",
-        "asignatura" => "text",
-        "tema" => "text",
-        "realizada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "reto_empresa" => [
-        "empresa" => "text",
-        "reto" => "text",
-        "estudiantes" => "number",
-        "realizado" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "grupo_focal" => [
-        "experto" => "text",
-        "fecha_comite" => "date",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "estudio_tendencias" => [
-        "informe" => "text",
-        "fecha_elaboracion" => "date",
-        "acta_comite" => "text",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "analisis_contexto" => [
-        "informe" => "text",
-        "fecha_elaboracion" => "date",
-        "acta_comite" => "text",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "autoevaluacion_mejoras" => [
-        "informe" => "text",
-        "fecha_elaboracion" => "date",
-        "acta_comite" => "text",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "empresas_practicas" => [
-        "empresa" => "text",
-        "concretada" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "graduados" => [
-        "actividades_programadas" => "number",
-        "actividades_realizadas" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "mesa_sector" => [
-        "participacion" => "text",
-        "fecha_encuentro" => "date",
-        "tema" => "text",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "mejoras_practicas" => [
-        "accion" => "text",
-        "fecha_implementacion" => "date",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "diplomado_grado" => [
-        "nivel_formacion" => "select_nivel",
-        "tema" => "text",
-        "estudiantes" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "formacion_continua" => [
-        "curso" => "text",
-        "estudiantes" => "number",
-        "aprobado" => "select",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "mbc_refuerzos" => [
-        "competencia" => "text",
-        "asignatura" => "text",
-        "docente" => "text",
-        "actividades_verificadas" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "taller_refuerzo_saber" => [
-        "taller" => "text",
-        "estudiantes" => "number",
-        "fecha" => "date",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "proyecto_grado" => [
-        "propuesta" => "text",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "visita_aula" => [
-        "docente" => "text",
-        "fecha" => "date",
-        "hora" => "time",
-        "asignatura" => "text",
-        "aula" => "text",
-        "calificacion" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "estudio_semilleros_estudiantes" => [
-        "estudiante" => "text",
-        "fecha_ingreso" => "date",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "estudio_semilleros_docentes" => [
-        "docente" => "text",
-        "fecha_ingreso" => "date",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "pep" => [
-        "proyecto" => "text",
-        "fecha_actualizacion" => "date",
-        "fecha_aprobacion" => "date",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "herramientas" => [
-        "herramienta" => "text",
-        "asignatura" => "text",
-        "fecha_incorporacion" => "date",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "micrositio" => [
-        "actualizacion" => "text",
-        "fecha_actualizacion" => "date",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "modalidad_virtual" => [
-        "modulo" => "text",
-        "cantidad" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "sitio_interaccion" => [
-        "espacio" => "text",
-        "cantidad" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "atlas" => [
-        "registro" => "text",
-        "cantidad" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "seguimiento_estudiantes" => [
-        "seguimiento" => "text",
-        "cantidad" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ],
-    "matricula_estudiantes_antiguos" => [
-        "matricula" => "text",
-        "cantidad" => "number",
-        "evidencia_link" => "url",
-        "semester" => "select_semester"
-    ]
-];
+function obtenerCategoriasDisponibles($conn, $usuario_id, $usuario_rol) {
+    if ($usuario_rol === 'Director') {
+        // Los directores pueden ver todas las categorías
+        return [
+            "ppa" => [
+                "nivel_formacion" => "select_nivel",
+                "ppa_realizado" => "text", 
+                "terminado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "visita_regional" => [
+                "visitas_regionales" => "text",
+                "estudiantes" => "number",
+                "realizado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "visita_nacional" => [
+                "visita_nacional" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "charlas" => [
+                "nombre_evento" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "feria" => [
+                "nombre_evento" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "congreso" => [
+                "nombre_evento" => "text",
+                "estudiantes" => "number",
+                "realizado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "evento_nacional" => [
+                "nombre_evento" => "text",
+                "estudiantes" => "number",
+                "realizado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "biblio" => [
+                "asignaturas_programadas" => "text",
+                "bibliografia_ingles" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "profesor_visitante" => [
+                "profesor" => "text",
+                "tema" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "actividades_interculturales" => [
+                "actividad" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "actividades_universidades_internacionales" => [
+                "actividad" => "text",
+                "actividad_conjunta" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "productos_en_ingles" => [
+                "producto" => "text",
+                "estudiantes" => "number",
+                "terminados" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "ppa_traducidos" => [
+                "documento" => "text",
+                "estudiantes" => "number",
+                "asignatura" => "text",
+                "terminados" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "coil" => [
+                "universidad" => "text",
+                "asignatura" => "text",
+                "tema" => "text",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "clase_espejo" => [
+                "universidad" => "text",
+                "asignatura" => "text",
+                "tema" => "text",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "reto_empresa" => [
+                "empresa" => "text",
+                "reto" => "text",
+                "estudiantes" => "number",
+                "realizado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "grupo_focal" => [
+                "experto" => "text",
+                "fecha_comite" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "estudio_tendencias" => [
+                "informe" => "text",
+                "fecha_elaboracion" => "date",
+                "acta_comite" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "analisis_contexto" => [
+                "informe" => "text",
+                "fecha_elaboracion" => "date",
+                "acta_comite" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "autoevaluacion_mejoras" => [
+                "informe" => "text",
+                "fecha_elaboracion" => "date",
+                "acta_comite" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "empresas_practicas" => [
+                "empresa" => "text",
+                "concretada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "graduados" => [
+                "actividades_programadas" => "number",
+                "actividades_realizadas" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "mesa_sector" => [
+                "participacion" => "text",
+                "fecha_encuentro" => "date",
+                "tema" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "mejoras_practicas" => [
+                "accion" => "text",
+                "fecha_implementacion" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "diplomado_grado" => [
+                "nivel_formacion" => "select_nivel",
+                "tema" => "text",
+                "estudiantes" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "formacion_continua" => [
+                "curso" => "text",
+                "estudiantes" => "number",
+                "aprobado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "mbc_refuerzos" => [
+                "competencia" => "text",
+                "asignatura" => "text",
+                "docente" => "text",
+                "actividades_verificadas" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "taller_refuerzo_saber" => [
+                "taller" => "text",
+                "estudiantes" => "number",
+                "fecha" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "proyecto_grado" => [
+                "propuesta" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "visita_aula" => [
+                "docente" => "text",
+                "fecha" => "date",
+                "hora" => "time",
+                "asignatura" => "text",
+                "aula" => "text",
+                "calificacion" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "estudio_semilleros_estudiantes" => [
+                "estudiante" => "text",
+                "fecha_ingreso" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "estudio_semilleros_docentes" => [
+                "docente" => "text",
+                "fecha_ingreso" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "pep" => [
+                "proyecto" => "text",
+                "fecha_actualizacion" => "date",
+                "fecha_aprobacion" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "herramientas" => [
+                "herramienta" => "text",
+                "asignatura" => "text",
+                "fecha_incorporacion" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "micrositio" => [
+                "actualizacion" => "text",
+                "fecha_actualizacion" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "modalidad_virtual" => [
+                "modulo" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "sitio_interaccion" => [
+                "espacio" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "atlas" => [
+                "registro" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "seguimiento_estudiantes" => [
+                "seguimiento" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "matricula_estudiantes_antiguos" => [
+                "matricula" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ]
+        ];
+    } else if ($usuario_rol === 'Docente') {
+        // Los docentes solo ven las categorías que tienen asignadas y activas
+        try {
+            $stmt = $conn->prepare("
+                SELECT nombre_categoria 
+                FROM configuracion_poa 
+                WHERE docente_id = ? AND activo = TRUE
+            ");
+            $stmt->execute([$usuario_id]);
+            $categorias_asignadas = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        } catch (PDOException $e) {
+            // Si hay error en la consulta, log el error y retornar array vacío
+            error_log("Error al obtener categorías para docente: " . $e->getMessage());
+            return [];
+        }
+        
+        // Definir todos los campos disponibles (igual que el array original completo)
+        $todos_los_campos = [
+            "ppa" => [
+                "nivel_formacion" => "select_nivel",
+                "ppa_realizado" => "text", 
+                "terminado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "visita_regional" => [
+                "visitas_regionales" => "text",
+                "estudiantes" => "number",
+                "realizado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "visita_nacional" => [
+                "visita_nacional" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "charlas" => [
+                "nombre_evento" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "feria" => [
+                "nombre_evento" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "congreso" => [
+                "nombre_evento" => "text",
+                "estudiantes" => "number",
+                "realizado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "evento_nacional" => [
+                "nombre_evento" => "text",
+                "estudiantes" => "number",
+                "realizado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "biblio" => [
+                "asignaturas_programadas" => "text",
+                "bibliografia_ingles" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "profesor_visitante" => [
+                "profesor" => "text",
+                "tema" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "actividades_interculturales" => [
+                "actividad" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "actividades_universidades_internacionales" => [
+                "actividad" => "text",
+                "actividad_conjunta" => "text",
+                "estudiantes" => "number",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "productos_en_ingles" => [
+                "producto" => "text",
+                "estudiantes" => "number",
+                "terminados" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "ppa_traducidos" => [
+                "documento" => "text",
+                "estudiantes" => "number",
+                "asignatura" => "text",
+                "terminados" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "coil" => [
+                "universidad" => "text",
+                "asignatura" => "text",
+                "tema" => "text",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "clase_espejo" => [
+                "universidad" => "text",
+                "asignatura" => "text",
+                "tema" => "text",
+                "realizada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "reto_empresa" => [
+                "empresa" => "text",
+                "reto" => "text",
+                "estudiantes" => "number",
+                "realizado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "grupo_focal" => [
+                "experto" => "text",
+                "fecha_comite" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "estudio_tendencias" => [
+                "informe" => "text",
+                "fecha_elaboracion" => "date",
+                "acta_comite" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "analisis_contexto" => [
+                "informe" => "text",
+                "fecha_elaboracion" => "date",
+                "acta_comite" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "autoevaluacion_mejoras" => [
+                "informe" => "text",
+                "fecha_elaboracion" => "date",
+                "acta_comite" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "empresas_practicas" => [
+                "empresa" => "text",
+                "concretada" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "graduados" => [
+                "actividades_programadas" => "number",
+                "actividades_realizadas" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "mesa_sector" => [
+                "participacion" => "text",
+                "fecha_encuentro" => "date",
+                "tema" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "mejoras_practicas" => [
+                "accion" => "text",
+                "fecha_implementacion" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "diplomado_grado" => [
+                "nivel_formacion" => "select_nivel",
+                "tema" => "text",
+                "estudiantes" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "formacion_continua" => [
+                "curso" => "text",
+                "estudiantes" => "number",
+                "aprobado" => "select",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "mbc_refuerzos" => [
+                "competencia" => "text",
+                "asignatura" => "text",
+                "docente" => "text",
+                "actividades_verificadas" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "taller_refuerzo_saber" => [
+                "taller" => "text",
+                "estudiantes" => "number",
+                "fecha" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "proyecto_grado" => [
+                "propuesta" => "text",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "visita_aula" => [
+                "docente" => "text",
+                "fecha" => "date",
+                "hora" => "time",
+                "asignatura" => "text",
+                "aula" => "text",
+                "calificacion" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "estudio_semilleros_estudiantes" => [
+                "estudiante" => "text",
+                "fecha_ingreso" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "estudio_semilleros_docentes" => [
+                "docente" => "text",
+                "fecha_ingreso" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "pep" => [
+                "proyecto" => "text",
+                "fecha_actualizacion" => "date",
+                "fecha_aprobacion" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "herramientas" => [
+                "herramienta" => "text",
+                "asignatura" => "text",
+                "fecha_incorporacion" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "micrositio" => [
+                "actualizacion" => "text",
+                "fecha_actualizacion" => "date",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "modalidad_virtual" => [
+                "modulo" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "sitio_interaccion" => [
+                "espacio" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "atlas" => [
+                "registro" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "seguimiento_estudiantes" => [
+                "seguimiento" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ],
+            "matricula_estudiantes_antiguos" => [
+                "matricula" => "text",
+                "cantidad" => "number",
+                "evidencia_link" => "url",
+                "semester" => "select_semester"
+            ]
+        ];
 
-
+        $categorias_filtradas = [];
+        foreach ($categorias_asignadas as $categoria) {
+            if (isset($todos_los_campos[$categoria])) {
+                $categorias_filtradas[$categoria] = $todos_los_campos[$categoria];
+            }
+        }
+        
+        return $categorias_filtradas;
+    }
+    
+    return [];
+}
 ?>
 
 <!DOCTYPE html>
@@ -491,13 +829,24 @@ $camposPorTipo = [
                 <?php endif; ?>
                 
                 <ul class="space-y-2" id="poa-categories">
-                    <?php foreach (array_keys($camposPorTipo) as $categoria): ?>
-                    <li class="category-item rounded-lg cursor-pointer p-3 text-sm font-medium"
-                        onclick="mostrarTabla('<?= $categoria ?>')">
-                        <i class="fas fa-chevron-right mr-2"></i>
-                        <?= strtoupper(str_replace('_', ' ', $categoria)) ?>
-                    </li>
-                    <?php endforeach; ?>
+                    <?php if (empty($camposPorTipo)): ?>
+                        <li class="text-white text-sm p-3 bg-red-500 bg-opacity-20 rounded-lg">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            <?php if ($usuario_rol === 'Docente'): ?>
+                                No tienes categorías asignadas para visualizar. Contacta al Director.
+                            <?php else: ?>
+                                No hay categorías disponibles.
+                            <?php endif; ?>
+                        </li>
+                    <?php else: ?>
+                        <?php foreach (array_keys($camposPorTipo) as $categoria): ?>
+                        <li class="category-item rounded-lg cursor-pointer p-3 text-sm font-medium"
+                            onclick="mostrarTabla('<?= $categoria ?>')">
+                            <i class="fas fa-chevron-right mr-2"></i>
+                            <?= strtoupper(str_replace('_', ' ', $categoria)) ?>
+                        </li>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </ul>
             </div>
         </aside>
