@@ -740,6 +740,7 @@ function obtenerCategoriasDisponibles($conn, $usuario_id, $usuario_rol) {
     <title>SystemPOA - Ver POA</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="resource/fesc.png">
     <style>
         .gradient-bg {
             background: linear-gradient(135deg, #07396b 0%, #195da2 100%);

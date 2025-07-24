@@ -21,6 +21,7 @@ $email_usuario = $_SESSION['usuario_email'];
     <link rel="stylesheet" href="dashboard.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" type="image/png" href="resource/fesc.png">
 </head>
 <body>
     <div class="dashboard-container">
