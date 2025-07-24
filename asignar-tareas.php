@@ -133,13 +133,16 @@ class ConfiguracionPOA {
     }
 
     public function actualizarEstadoCategoria($docente_id, $categoria, $activo) {
+        // Convertir explícitamente a booleano para PostgreSQL
+        $activo_bool = $activo ? 'TRUE' : 'FALSE';
+        
         $stmt = $this->conn->prepare("
             UPDATE configuracion_poa 
-            SET activo = ?, fecha_modificacion = CURRENT_TIMESTAMP 
+            SET activo = $activo_bool, fecha_modificacion = CURRENT_TIMESTAMP 
             WHERE docente_id = ? AND nombre_categoria = ?
         ");
         
-        return $stmt->execute([$activo, $docente_id, $categoria]);
+        return $stmt->execute([$docente_id, $categoria]);
     }
 
     public function getTodasLasCategorias() {
@@ -170,7 +173,8 @@ if ($_POST && isset($_POST['docente_id'])) {
         
         // Actualizar cada categoría
         foreach (array_keys($configuracion->getTodasLasCategorias()) as $categoria) {
-            $activo = isset($_POST["categoria_$categoria"]) ? true : false;
+            // Asegurar que el valor sea booleano
+            $activo = isset($_POST["categoria_$categoria"]) && $_POST["categoria_$categoria"] == '1';
             $configuracion->actualizarEstadoCategoria($docente_id, $categoria, $activo);
         }
         
