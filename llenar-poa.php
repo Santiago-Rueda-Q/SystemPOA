@@ -397,7 +397,7 @@ $camposPorTipo = [
 <body class="bg-gray-100">
     <!-- Header -->
     <div class="gradient-bg text-white p-4 shadow-lg fixed top-0 left-0 right-0 z-50 header-height flex items-center">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between w-full">
             <div class="flex items-center space-x-3">
                 <i class="fas fa-graduation-cap text-2xl"></i>
                 <h1 class="text-2xl font-bold">SystemPOA</h1>

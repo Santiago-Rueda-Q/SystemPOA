@@ -212,6 +212,7 @@ if (isset($_GET['docente_id']) || isset($_POST['docente_id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asignar Tareas POA - Director</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
@@ -230,109 +231,143 @@ if (isset($_GET['docente_id']) || isset($_POST['docente_id'])) {
             }
         }
     </script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #07396b 0%, #195da2 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .hover-scale {
+            transition: transform 0.2s ease-in-out;
+        }
+        .hover-scale:hover {
+            transform: scale(1.02);
+        }
+        .category-item {
+            background: linear-gradient(135deg, #195da2 0%, #3b8cde 100%);
+            transition: all 0.3s ease;
+        }
+        .category-item:hover {
+            background: linear-gradient(135deg, #3b8cde 0%, #5ba3e8 100%);
+            transform: translateX(5px);
+        }
+        .form-container {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        .input-focus:focus {
+            border-color: #3b8cde;
+            box-shadow: 0 0 0 3px rgba(59, 140, 222, 0.1);
+        }
+        .header-height {
+            height: 80px;
+        }
+        .main-container {
+            height: calc(100vh - 80px);
+            margin-top: 80px;
+        }
+    </style>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body class="bg-gris-claro min-h-screen">
     <!-- Header -->
-    <header class="bg-azul4 text-white shadow-lg">
-        <div class="container mx-auto px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <i class="fas fa-tasks text-2xl text-azul5"></i>
-                    <h1 class="text-2xl font-bold">Sistema POA - Asignación de Tareas</h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-azul5">Director: <?php echo $_SESSION['nombre'] ?? 'Usuario'; ?></span>
-                    <a href="logout.php" class="bg-azul2 hover:bg-azul3 px-4 py-2 rounded-lg transition-colors">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Salir
-                    </a>
-                </div>
+    <header class="gradient-bg text-white p-4 shadow-lg fixed top-0 left-0 right-0 z-50 header-height flex items-center">
+        <div class="flex items-center justify-between w-full">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-graduation-cap text-2xl"></i>
+                <h1 class="text-2xl font-bold">SystemPOA</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm opacity-90">¡Bienvenido, <?php echo htmlspecialchars($_SESSION['usuario_nombre'] ?? 'Usuario'); ?>!</span>
+                <a href="dashboard.php" class="bg-white bg-opacity-20 px-4 py-2 rounded-lg hover:bg-opacity-30 transition">
+                    <i class="fas fa-arrow-left mr-2"></i>Dashboard
+                </a>
             </div>
         </div>
     </header>
 
-    <div class="container mx-auto px-6 py-8">
-        <!-- Mensajes -->
-        <?php if ($mensaje): ?>
-        <div class="mb-6 p-4 rounded-lg <?php echo $tipo_mensaje === 'success' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'; ?>">
-            <div class="flex items-center">
-                <i class="fas <?php echo $tipo_mensaje === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'; ?> mr-2"></i>
-                <?php echo htmlspecialchars($mensaje); ?>
-            </div>
-        </div>
-        <?php endif; ?>
-
-        <!-- Selector de Docente -->
-        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h2 class="text-xl font-bold text-azul4 mb-4 flex items-center">
-                <i class="fas fa-user-tie mr-3 text-azul2"></i>
-                Seleccionar Docente
-            </h2>
-            
-            <form method="GET" class="flex items-center space-x-4">
-                <div class="flex-1">
-                    <select name="docente_id" onchange="this.form.submit()" 
-                            class="w-full px-4 py-3 border border-gris-medio rounded-lg focus:ring-2 focus:ring-azul2 focus:border-azul2 bg-white text-gray-800">
-                        <option value="">Seleccione un docente...</option>
-                        <?php foreach ($docentes as $docente): ?>
-                        <option value="<?php echo $docente['id']; ?>" 
-                                <?php echo (isset($_GET['docente_id']) && $_GET['docente_id'] == $docente['id']) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($docente['nombre'] . ' - ' . $docente['email']); ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
+     <div class="main-container overflow-y-auto">
+        <div class="container mx-auto px-6 py-8">
+            <!-- Mensajes -->
+            <?php if ($mensaje): ?>
+            <div class="mb-6 p-4 rounded-lg card-shadow <?php echo $tipo_mensaje === 'success' ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-red-100 text-red-800 border border-red-300'; ?>">
+                <div class="flex items-center">
+                    <i class="fas <?php echo $tipo_mensaje === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'; ?> mr-2"></i>
+                    <?php echo htmlspecialchars($mensaje); ?>
                 </div>
-                <button type="submit" class="bg-azul2 hover:bg-azul3 text-white px-6 py-3 rounded-lg transition-colors">
-                    <i class="fas fa-search mr-2"></i>Buscar
-                </button>
-            </form>
-        </div>
+            </div>
+            <?php endif; ?>
+         <!-- Selector de Docente -->
+            <div class="bg-white rounded-xl card-shadow p-6 mb-8 hover-scale form-container">
+                <h2 class="text-xl font-bold text-azul4 mb-4 flex items-center">
+                    <i class="fas fa-user-tie mr-3 text-azul2"></i>
+                    Seleccionar Docente
+                </h2>
+                
+                <form method="GET" class="flex items-center space-x-4">
+                    <div class="flex-1">
+                        <select name="docente_id" onchange="this.form.submit()" 
+                                class="w-full px-4 py-3 border border-gris-medio rounded-lg focus:ring-2 focus:ring-azul2 focus:border-azul2 bg-white text-gray-800 input-focus">
+                            <option value="">Seleccione un docente...</option>
+                            <?php foreach ($docentes as $docente): ?>
+                            <option value="<?php echo $docente['id']; ?>" 
+                                    <?php echo (isset($_GET['docente_id']) && $_GET['docente_id'] == $docente['id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($docente['nombre'] . ' - ' . $docente['email']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="submit" class="bg-azul2 hover:bg-azul3 text-white px-6 py-3 rounded-lg transition-colors hover-scale">
+                        <i class="fas fa-search mr-2"></i>Buscar
+                    </button>
+                </form>
+            </div>
 
         <!-- Configuración de Categorías -->
         <?php if ($docente_seleccionado && !empty($malla_completa)): ?>
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <div class="mb-6">
-                <h2 class="text-xl font-bold text-azul4 flex items-center">
-                    <i class="fas fa-clipboard-list mr-3 text-azul2"></i>
-                    Configurar Tareas POA para: <?php echo htmlspecialchars($docente_seleccionado['nombre']); ?>
-                </h2>
-                <p class="text-gris-oscuro mt-2">
-                    <i class="fas fa-envelope mr-2"></i>
-                    <?php echo htmlspecialchars($docente_seleccionado['email']); ?>
-                </p>
-            </div>
+        <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold text-azul4 flex items-center">
+                        <i class="fas fa-clipboard-list mr-3 text-azul2"></i>
+                        Configurar Tareas POA para: <?php echo htmlspecialchars($docente_seleccionado['nombre']); ?>
+                    </h2>
+                    <p class="text-gris-oscuro mt-2">
+                        <i class="fas fa-envelope mr-2"></i>
+                        <?php echo htmlspecialchars($docente_seleccionado['email']); ?>
+                    </p>
+                </div>
 
             <form method="POST" id="configuracionForm">
                 <input type="hidden" name="docente_id" value="<?php echo $docente_seleccionado['id']; ?>">
                 
                 <!-- Controles superiores -->
-                <div class="mb-6 flex flex-wrap items-center justify-between gap-4 p-4 bg-gris-claro rounded-lg">
+                <div class="mb-6 flex flex-wrap items-center justify-between gap-4 p-4 form-container rounded-lg card-shadow">
                     <div class="flex items-center space-x-4">
                         <button type="button" onclick="seleccionarTodos()" 
-                                class="bg-azul1 hover:bg-azul2 text-white px-4 py-2 rounded-lg transition-colors">
+                                class="bg-azul1 hover:bg-azul2 text-white px-4 py-2 rounded-lg transition-colors hover-scale">
                             <i class="fas fa-check-double mr-2"></i>Seleccionar Todos
                         </button>
                         <button type="button" onclick="deseleccionarTodos()" 
-                                class="bg-gris-oscuro hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                                class="bg-gris-oscuro hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors hover-scale">
                             <i class="fas fa-times mr-2"></i>Deseleccionar Todos
                         </button>
                     </div>
-                    <div class="text-sm text-gris-oscuro">
+                    <div class="text-sm text-gris-oscuro font-semibold">
                         <span id="contador">0</span> de <?php echo count($malla_completa); ?> categorías seleccionadas
                     </div>
                 </div>
 
                 <!-- Grid de Categorías -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     <?php foreach ($malla_completa as $categoria): ?>
-                    <div class="categoria-item bg-gradient-to-br from-white to-gris-claro border border-gris-medio rounded-lg p-4 hover:shadow-md transition-all duration-200">
+                    <div class="categoria-item bg-white border border-gris-medio rounded-lg p-4 card-shadow hover-scale transition-all duration-200">
                         <label class="flex items-start space-x-3 cursor-pointer group">
                             <input type="checkbox" 
-                                   name="categoria_<?php echo $categoria['nombre_categoria']; ?>" 
-                                   value="1"
-                                   class="categoria-checkbox mt-1 w-5 h-5 accent-azul2 bg-white border-2 border-gris-medio rounded focus:ring-azul2 focus:ring-2"
-                                   <?php echo $categoria['activo'] ? 'checked' : ''; ?>
-                                   onchange="actualizarContador()">
+                                    name="categoria_<?php echo $categoria['nombre_categoria']; ?>" 
+                                    value="1"
+                                    class="categoria-checkbox mt-1 w-5 h-5 accent-azul2 bg-white border-2 border-gris-medio rounded focus:ring-azul2 focus:ring-2"
+                                    <?php echo $categoria['activo'] ? 'checked' : ''; ?>
+                                    onchange="actualizarContador()">
 
                             <div class="flex-1">
                                 <div class="font-semibold text-azul4 group-hover:text-azul2 transition-colors">
@@ -359,7 +394,7 @@ if (isset($_GET['docente_id']) || isset($_POST['docente_id'])) {
                 <!-- Botón de Guardar -->
                 <div class="flex justify-center">
                     <button type="submit" 
-                            class="bg-gradient-to-r from-azul2 to-azul1 hover:from-azul3 hover:to-azul2 text-white px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+                            class="gradient-bg text-white px-8 py-3 rounded-lg font-semibold card-shadow hover-scale transition-all duration-200">
                         <i class="fas fa-save mr-2"></i>
                         Guardar Configuración
                     </button>
@@ -367,7 +402,7 @@ if (isset($_GET['docente_id']) || isset($_POST['docente_id'])) {
             </form>
         </div>
         <?php elseif (isset($_GET['docente_id'])): ?>
-        <div class="bg-white rounded-xl shadow-lg p-8 text-center">
+        <div class="bg-white rounded-xl card-shadow p-8 text-center hover-scale">
             <div class="text-6xl text-gris-medio mb-4">
                 <i class="fas fa-user-slash"></i>
             </div>
@@ -375,7 +410,7 @@ if (isset($_GET['docente_id']) || isset($_POST['docente_id'])) {
             <p class="text-gris-oscuro">El docente seleccionado no existe o no está disponible.</p>
         </div>
         <?php else: ?>
-        <div class="bg-white rounded-xl shadow-lg p-8 text-center">
+        <div class="bg-white rounded-xl card-shadow p-8 text-center hover-scale">
             <div class="text-6xl text-azul5 mb-4">
                 <i class="fas fa-arrow-up"></i>
             </div>
