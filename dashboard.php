@@ -43,7 +43,7 @@ foreach ($datosInscritos as $dato) {
     $cantidad = (int)$dato['cantidad'];
     $totales['total'] += $cantidad;
     
-    $nivel = trim($dato['nivel_formacion']); // Sin strtolower para mantener formato original
+    $nivel = trim($dato['nivel_formacion']);
     
     // Mapear basado en el nombre exacto de la base de datos
     switch ($nivel) {

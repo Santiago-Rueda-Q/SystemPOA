@@ -803,7 +803,8 @@ $camposPorTipo = obtenerCategoriasDisponibles($conn, $usuario_id, $usuario_rol);
                     <div class="hidden bg-white rounded-2xl shadow-xl p-8 card-shadow" id="poa-form">
                         <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-6" id="dynamic-form">
                             <input type="hidden" name="categoria" id="categoria-input">
-                            <input type="hidden" name="unificacion_id" value="1"> <!-- Ajustar según tu lógica -->
+                            <input type="hidden" name="unificacion_id" value="1">
+                            
                             
                             <div id="campos-dinamicos"></div>
                             
